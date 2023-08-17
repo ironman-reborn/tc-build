@@ -8,6 +8,7 @@
 # GH_EMAIL | Your Github Email
 # GH_TOKEN | Your Github Token ( repo & repo_hook )
 # GH_PUSH_REPO_URL | Your Repository for store compiled Toolchain ( without https:// or www. ) ex. github.com/xyz-prjkt/xRageTC.git
+LLVM_BRANCH="release/17.x"
 
 # Function to show an informational message
 msg() {
@@ -64,7 +65,7 @@ CC=clang CXX=clang++ ./build-llvm.py \
     --targets "ARM;AArch64;X86" \
     --shallow-clone \
     --quiet-cmake \
-    --branch "release/17.x" \
+    --branch "$LLVM_BRANCH" \
     --build-type "Release" 2>&1 | tee build.log
 
 # Check if the final clang binary exists or not.
@@ -122,10 +123,21 @@ tg_post_msg "<b>$LLVM_NAME: Toolchain compilation Finished</b>%0A<b>Clang Versio
 
 # Push to GitHub
 # Update Git repository
+repo_url="https://$GH_USERNAME:$GH_TOKEN@$GH_PUSH_REPO_URL"
+repo_branch="$LLVM_BRANCH"
+repo_dir="rel_repo"
 git config --global user.name "$GH_USERNAME"
 git config --global user.email "$GH_EMAIL"
-git clone --branch "release/17.x" "https://$GH_USERNAME:$GH_TOKEN@$GH_PUSH_REPO_URL" rel_repo
-pushd rel_repo || exit
+git clone -b $repo_branch $repo_url $repo_dir &>/dev/null
+if ! [ -d "$repo_dir" ]; then
+    mkdir -p $repo_dir
+    git -C $repo_dir init -b $repo_branch
+    curl https://raw.githubusercontent.com/ironman-reborn/tc-build/$LLVM_BRANCH/tc-build/LICENSE -o $repo_dir/LICENSE
+    curl https://raw.githubusercontent.com/ironman-reborn/tc-build/$LLVM_BRANCH/tc-build/README.md -o $repo_dir/README.md
+    git -C $repo_dir add .
+    git -C $repo_dir commit -m "Initial"
+fi
+pushd $repo_dir || exit
 rm -fr ./*
 cp -r ../install/* .
 git checkout README.md LICENSE # keep this as it's not part of the toolchain itself
